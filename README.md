@@ -11,4 +11,18 @@ L'entreprise dispose de deux sites géographiques. Chaque site possède une arch
 
 ##  Architecture Réseau
 Outil utilisé : Cisco Packet Tracer
+
 <img width="1294" height="628" alt="image" src="https://github.com/user-attachments/assets/b4917727-1b90-40d3-a994-aba8801db9e6" />
+
+### Topologie
+Le réseau est composé de deux sites connectés via un **Tunnel IPSEC GRE**.
+
+Chaque site est divisé en 3 zones (VLANs) :
+1.  **Service**
+2.  **Production**
+3.  **Admin**
+
+### Politique de Sécurité (ACL)
+Les règles de filtrage suivantes ont été implémentées :
+*  **Réseau Admin :** Accès total à tous les réseaux (locaux et distants).
+*  **Réseaux Service & Production :** Isolés. Ils ne peuvent accéder à aucun autre réseau (ni localement, ni sur le site distant).
