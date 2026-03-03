@@ -33,6 +33,6 @@ Ce projet a été réalisé par un quadrinôme. Chaque membre s'est spécialisé
 | Membre de l'équipe | Spécialisation | Description succincte |
 | :--- | :--- | :--- |
 | **Geraud Karbowski** | **Sécurisation DNS** | Mise en place de DNSSEC pour garantir l'authenticité des réponses DNS. |
-| **Esteban Cubizol** | **Sécurisation WEB** | Durcissement des serveurs Web (HTTPS, configurations sécurisées). |
+| **Esteban Cubizolle** | **Sécurisation WEB** | Durcissement des serveurs Web (HTTPS, configurations sécurisées). |
 | **Etan Robain** | **Tests de sécurité** | Scénarios d'attaques et vérification de la robustesse (Pentesting). |
-| **Alexis Stingre** | **Recommandations ANSSI** | Audit de la maquette via la checklist officielle de l'ANSSI. |
+| **Thibaut Lhernout** | **Recommandations ANSSI** | Audit de la maquette via la checklist officielle de l'ANSSI. |
