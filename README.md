@@ -92,3 +92,66 @@ Ce projet a été réalisé par un quadrinôme. Chaque membre s'est spécialisé
 | **ASA PF1** | `route outside 0.0.0.0 0.0.0.0 10.255.254.1 1` | Sortie via Router 2 |
 | **Switch L3-2** | `ip route 0.0.0.0 0.0.0.0 10.255.255.5` | Sortie via PF2 (Inside) |
 | **ASA PF2** | `route outside 0.0.0.0 0.0.0.0 10.255.253.1 1` | Sortie via Router 4 |
+
+
+## DNS DNSSEC
+
+1. Problématique et Objectif
+
+Le protocole DNS standard est vulnérable aux attaques de type DNS Cache Poisoning (empoisonnement de cache) et Man-in-the-Middle. Un attaquant pourrait détourner le trafic du réseau "Admin" vers un serveur malveillant en falsifiant les réponses UDP.
+L'objectif est d'implémenter DNSSEC (Domain Name System Security Extensions) pour garantir l'intégrité et l'authenticité des résolutions de noms au sein de l'infrastructure entreprise.lan.
+2. Détails de l'Architecture Technique
+
+L'implémentation repose sur le serveur de noms BIND 9.18. Conformément aux recommandations de l'ANSSI, nous avons opté pour une politique de signature moderne :
+
+    Algorithme : ECDSAP256SHA256 (Algorithme 13). Ce choix offre une sécurité équivalente au RSA-3072 tout en réduisant la taille des paquets DNS, évitant ainsi la fragmentation UDP.
+
+    Gestion des clés (CSK) : Une clé combinée (Combined Signing Key) gère à la fois la signature des enregistrements (ZSK) et la validation de la zone (KSK).
+
+    Durée de vie (TTL) : Ajustée à 86400s (24h) pour assurer une rotation et une fraîcheur optimale des signatures cryptographiques.
+
+3. Configuration du Service (Extraits)
+A. Options de sécurité (named.conf.options)
+
+Nous avons activé la validation DNSSEC et masqué la version du service pour limiter la reconnaissance (Footprinting) :
+Plaintext
+
+options {
+    dnssec-validation auto;
+    version "none"; // Recommandation ANSSI
+    listen-on-v6 { any; };
+};
+
+B. Politique de signature (named.conf.local)
+
+La signature est automatisée via l'inline-signing pour garantir que chaque modification de la zone db.entreprise.lan déclenche une nouvelle signature RRSIG :
+Plaintext
+
+zone "entreprise.lan" {
+    type master;
+    file "/etc/bind/zones/db.entreprise.lan";
+    key-directory "/etc/bind/keys";
+    dnssec-policy default;
+    inline-signing yes;
+};
+
+4. Résolution des contraintes de sécurité (Hardening)
+
+L'implémentation a nécessité une intervention sur les couches de protection du système d'exploitation :
+
+    AppArmor : Le profil de sécurité usr.sbin.named a été modifié pour autoriser explicitement l'écriture (rw) dans les répertoires /etc/bind/zones/ et /etc/bind/keys/. Sans cela, le moteur cryptographique de BIND était bloqué par le noyau.
+
+    Droits UNIX : Application d'un chown bind:bind sur les dossiers de clés pour respecter le principe du moindre privilège.
+
+5. Tests et Preuves de fonctionnement
+
+La validité de la configuration a été confirmée par une requête dig avec le flag DO (DNSSEC OK).
+
+Résultat du test :
+Plaintext
+
+;; ANSWER SECTION:
+www.entreprise.lan.  86400  IN  A      10.0.2.15
+www.entreprise.lan.  86400  IN  RRSIG  A 13 3 86400 20260410033836 ...
+
+La présence de l'enregistrement RRSIG (Resource Record Signature) confirme que la réponse est signée cryptographiquement. Toute altération de l'adresse IP par un tiers rendrait la signature invalide, provoquant une erreur SERVFAIL chez le client, protégeant ainsi l'intégrité du réseau.
