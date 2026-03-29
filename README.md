@@ -155,3 +155,266 @@ www.entreprise.lan.  86400  IN  A      10.0.2.15
 www.entreprise.lan.  86400  IN  RRSIG  A 13 3 86400 20260410033836 ...
 
 La présence de l'enregistrement RRSIG (Resource Record Signature) confirme que la réponse est signée cryptographiquement. Toute altération de l'adresse IP par un tiers rendrait la signature invalide, provoquant une erreur SERVFAIL chez le client, protégeant ainsi l'intégrité du réseau.
+
+# Sécurisation complète d'un serveur Apache2 en HTTPS avec une CA Locale (Debian)
+
+## SECURISAION WEB
+Lors du déploiement d'un serveur web en environnement de développement ou sur un réseau local (Machine Virtuelle), l'utilisation d'un simple certificat auto-signé génère systématiquement une alerte de sécurité ("Connexion non sécurisée") sur les navigateurs modernes. 
+
+L'objectif de cette intervention est de passer un serveur Apache 2 de HTTP à HTTPS de manière propre, en résolvant les conflits de configuration, en créant une véritable Autorité de Certification (CA) locale pour valider la chaîne de confiance, et en forçant la redirection des utilisateurs vers la version sécurisée.
+
+**Environnement technique :**
+- **OS :** Debian (Machine Virtuelle)
+- **Serveur Web :** Apache 2.4
+- **Réseau :** IP de la VM `10.0.2.15` 
+- **PKI (Public Key Infrastructure) :** OpenSSL (Localité configurée : Béthune)
+
+---
+
+##  Étape 1 : Diagnostic et résolution du conflit de démarrage (Port 443)
+
+Lors de l'activation initiale du SSL, le redémarrage d'Apache échoue avec une erreur fatale. L'analyse des logs (`systemctl status apache2`) révèle le message suivant : 
+`(98)Address already in use: AH00072: make_sock: could not bind to address [::]:443`.
+
+Le port 443 est bloqué car Apache tente de s'y attacher (bind) deux fois suite à une erreur de configuration.
+
+1. **Recherche de la source du conflit :**
+   On cherche où la directive d'écoute des ports est déclarée dans les fichiers d'Apache.
+   ```bash
+   grep -r "Listen" /etc/apache2/
+
+   #  Sécurisation d'un serveur Apache2 en HTTPS avec une CA Locale (Debian)
+
+##  Contexte et Objectifs
+
+Lors du déploiement d'un serveur web en environnement de développement ou sur un réseau local (machine virtuelle), l'utilisation d'un certificat auto-signé provoque une alerte de sécurité ("Connexion non sécurisée") sur les navigateurs modernes.
+
+L'objectif est de :
+
+- Passer Apache2 de **HTTP à HTTPS**
+- Résoudre les conflits de configuration
+- Mettre en place une **Autorité de Certification (CA) locale**
+- Établir une **chaîne de confiance valide**
+- Forcer la redirection vers HTTPS
+
+---
+
+##  Environnement technique
+
+- **OS :** Debian (VM)
+- **Serveur Web :** Apache 2.4
+- **IP VM :** `10.0.2.15`
+- **Loopback :** `127.0.0.1`
+- **PKI :** OpenSSL
+
+---
+
+##  Étape 1 : Correction du conflit port 443
+
+###  Erreur
+
+```
+(98)Address already in use: AH00072: could not bind to address [::]:443
+```
+
+###  Diagnostic
+
+```bash
+grep -r "Listen" /etc/apache2/
+```
+
+ Vérifier la présence de doublons dans :
+
+```
+/etc/apache2/ports.conf
+```
+
+###  Correction
+
+```bash
+sudo nano /etc/apache2/ports.conf
+```
+
+Garder uniquement :
+
+```apache
+<IfModule ssl_module>
+    Listen 443
+</IfModule>
+```
+
+###  Redémarrage
+
+```bash
+sudo systemctl restart apache2
+```
+
+---
+
+##  Étape 2 : Création de la CA locale
+
+###  Préparation
+
+```bash
+mkdir ~/mon_ca && cd ~/mon_ca
+```
+
+###  Clé privée CA
+
+```bash
+openssl genrsa -out MaCA.key 2048
+```
+
+### Certificat racine
+
+```bash
+openssl req -x509 -new -nodes \
+  -key MaCA.key \
+  -sha256 -days 3650 \
+  -out MaCA.pem \
+  -subj "/C=FR/ST=Hauts-de-France/L=Bethune/O=Mon Infrastructure/CN=Ma Propre Autorite"
+```
+
+---
+
+##  Étape 3 : Certificat serveur avec SAN
+
+###  Génération clé + CSR
+
+```bash
+openssl genrsa -out serveur.key 2048
+
+openssl req -new \
+  -key serveur.key \
+  -out serveur.csr \
+  -subj "/C=FR/ST=Hauts-de-France/L=Bethune/O=Mon Serveur/CN=10.0.2.15"
+```
+
+###  Fichier SAN
+
+```bash
+cat > extfile.cnf <<EOF
+subjectAltName = IP:10.0.2.15,IP:127.0.0.1
+EOF
+```
+
+###  Signature
+
+```bash
+openssl x509 -req \
+  -in serveur.csr \
+  -CA MaCA.pem \
+  -CAkey MaCA.key \
+  -CAcreateserial \
+  -out serveur.crt \
+  -days 825 \
+  -sha256 \
+  -extfile extfile.cnf
+```
+
+---
+
+##  Étape 4 : Configuration Apache SSL
+
+###  Installation des certificats
+
+```bash
+sudo cp serveur.crt /etc/ssl/certs/apache-selfsigned.crt
+sudo cp serveur.key /etc/ssl/private/apache-selfsigned.key
+```
+
+###  Configuration SSL
+
+```bash
+sudo nano /etc/apache2/sites-available/default-ssl.conf
+```
+
+Configurer :
+
+```apache
+SSLCertificateFile    /etc/ssl/certs/apache-selfsigned.crt
+SSLCertificateKeyFile /etc/ssl/private/apache-selfsigned.key
+```
+
+###  Activation
+
+```bash
+sudo a2enmod ssl
+sudo a2ensite default-ssl.conf
+sudo apache2ctl configtest
+```
+
+Résultat attendu :
+
+```
+Syntax OK
+```
+
+###  Redémarrage
+
+```bash
+sudo systemctl restart apache2
+```
+
+---
+
+##  Étape 5 : Redirection HTTP → HTTPS
+
+###  Configuration
+
+```bash
+sudo nano /etc/apache2/sites-available/000-default.conf
+```
+
+Ajouter :
+
+```apache
+Redirect permanent / https://10.0.2.15/
+```
+
+###  Rechargement
+
+```bash
+sudo systemctl reload apache2
+```
+
+---
+
+##  Étape 6 : Validation côté client
+
+###  Rendre la CA accessible
+
+```bash
+sudo cp ~/mon_ca/MaCA.pem /var/www/html/MaCA.crt
+```
+
+###  Télécharger
+
+```
+http://10.0.2.15/MaCA.crt
+```
+
+###  Importer dans Firefox
+
+1. Paramètres  
+2. Vie privée et sécurité  
+3. Certificats → Afficher les certificats  
+4. Onglet **Autorités**  
+5. Importer `MaCA.crt`
+
+###  Important
+
+Cocher :
+
+```
+Confirmer cette autorité de certification pour identifier les sites web
+```
+
+---
+
+##  Résultat
+
+-  HTTPS fonctionnel
+-  Aucun avertissement navigateur
+-  Redirection automatique HTTP → HTTPS
+-  Chaîne de confiance valide
