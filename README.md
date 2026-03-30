@@ -37,62 +37,290 @@ Ce projet a été réalisé par un quadrinôme. Chaque membre s'est spécialisé
 | **Etan Robain** | **Tests de sécurité** | Scénarios d'attaques et vérification de la robustesse (Pentesting). |
 | **Thibaut Lhernout** | **Recommandations ANSSI** | Audit de la maquette via la checklist officielle de l'ANSSI. |
 
-# 📋 Tableau d'Adressage Complet de l'Infrastructure
+# 📖 Dossier d'Architecture : Interconnexion WAN Sécurisée & Zero Trust
 
-## 🌐 Cœur de Réseau (Routage OSPF)
-| Équipement | Interface | Adresse IP | Masque | Rôle |
-| :--- | :--- | :--- | :--- | :--- |
-| **Router 2** | Gi0/1 | `10.1.0.1` | `255.255.255.0` | Lien vers Router 3 |
-| **Router 2** | Gi0/0 | `10.255.254.1` | `255.255.255.252` | Passerelle PF1 (Outside) |
-| **Router 3** | Gi0/0 | `10.1.0.2` | `255.255.255.0` | Lien vers Router 2 |
-| **Router 3** | Gi0/1 | `10.2.0.2` | `255.255.255.0` | Lien vers Router 4 |
-| **Router 4** | Gi0/0 | `10.2.0.1` | `255.255.255.0` | Lien vers Router 3 |
-| **Router 4** | Gi0/1 | `10.255.253.1` | `255.255.255.252` | Passerelle PF2 (Outside) |
+## 1. Tableau d'Adressage IP
 
----
-
-## 🛡️ Site 1 (Côté Gauche)
-**Passerelle vers Internet/WAN :** ASA PF1 (`10.255.254.2`)
-
-| Équipement | Interface / VLAN | Adresse IP | Masque | Usage |
-| :--- | :--- | :--- | :--- | :--- |
-| **PF1 (ASA)** | Vlan 2 (Outside) | `10.255.254.2` | `255.255.255.252` | Lien vers Router 2 |
-| **PF1 (ASA)** | Vlan 1 (Inside) | `10.255.255.1` | `255.255.255.252` | Lien vers Switch L3-1 |
-| **Switch L3-1** | Fa0/4 (Routed) | `10.255.255.2` | `255.255.255.252` | Lien vers PF1 |
-| **Switch L3-1** | **VLAN 10** | `192.168.1.254` | `255.255.255.0` | Passerelle **ADMIN-1** |
-| **Switch L3-1** | **VLAN 20** | `192.168.2.254` | `255.255.255.0` | Passerelle **PROD-1** |
-| **Switch L3-1** | **VLAN 30** | `192.168.3.254` | `255.255.255.0` | Passerelle **SERVICE-1** |
-| **PC0** | FastEthernet0 | `192.168.1.10` | `255.255.255.0` | PC Admin (VLAN 10) |
-| **PC1** | FastEthernet0 | `192.168.2.20` | `255.255.255.0` | PC Production (VLAN 20) |
-| **PC2** | FastEthernet0 | `192.168.3.30` | `255.255.255.0` | PC Service (VLAN 30) |
-
----
-
-## 🛡️ Site 2 (Côté Droit)
-**Passerelle vers Internet/WAN :** ASA PF2 (`10.255.253.2`)
-
-| Équipement | Interface / VLAN | Adresse IP | Masque | Usage |
-| :--- | :--- | :--- | :--- | :--- |
-| **PF2 (ASA)** | Vlan 2 (Outside) | `10.255.253.2` | `255.255.255.252` | Lien vers Router 4 |
-| **PF2 (ASA)** | Vlan 1 (Inside) | `10.255.255.5` | `255.255.255.252` | Lien vers Switch L3-2 |
-| **Switch L3-2** | Fa0/4 (Routed) | `10.255.255.6` | `255.255.255.252` | Lien vers PF2 |
-| **Switch L3-2** | **VLAN 100** | `192.168.10.1` | `255.255.255.0` | Passerelle **ADMIN-2** |
-| **Switch L3-2** | **VLAN 200** | `192.168.20.1` | `255.255.255.0` | Passerelle **PROD-2** |
-| **Switch L3-2** | **VLAN 300** | `192.168.30.1` | `255.255.255.0` | Passerelle **SERVICE-2** |
-| **PC3** | FastEthernet0 | `192.168.10.10` | `255.255.255.0` | PC Admin (VLAN 100) |
-| **PC4** | FastEthernet0 | `192.168.20.20` | `255.255.255.0` | PC Production (VLAN 200) |
-| **PC5** | FastEthernet0 | `192.168.30.30` | `255.255.255.0` | PC Service (VLAN 300) |
+| Équipement | Rôle / Localisation | Interface | Adresse IP | Masque de sous-réseau | Passerelle par défaut |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **PC0** | Admin (Site 1) | FastEthernet0 | 192.168.1.10 | 255.255.255.0 | 192.168.1.254 |
+| **PC1** | Production (Site 1) | FastEthernet0 | 192.168.2.20 | 255.255.255.0 | 192.168.2.254 |
+| **PC2** | Service (Site 1) | FastEthernet0 | 192.168.3.30 | 255.255.255.0 | 192.168.3.254 |
+| **Switch0** | Multicouche L3 (Site 1) | Vlan 10 (Admin) | 192.168.1.254 | 255.255.255.0 | - |
+| | | Vlan 20 (Prod) | 192.168.2.254 | 255.255.255.0 | - |
+| | | Vlan 30 (Service) | 192.168.3.254 | 255.255.255.0 | - |
+| | | Fa0/4 (Vers PF1) | 10.255.255.2 | 255.255.255.252 | - |
+| **PF1 (ASA)**| Pare-feu (Site 1) | Vlan 1 (Inside) | 10.255.255.1 | 255.255.255.252 | - |
+| | | Vlan 2 (Outside) | 10.255.254.2 | 255.255.255.252 | - |
+| **Router2** | Routeur VPN (Site 1) | Gi0/0 (LAN) | 10.255.254.1 | 255.255.255.252 | - |
+| | | Gi0/1 (WAN) | 10.1.0.1 | 255.255.255.0 | - |
+| | | Tunnel0 | 172.16.0.1 | 255.255.255.252 | - |
+| **Router3** | FAI / Internet | Gi0/0 (Vers R2) | 10.1.0.2 | 255.255.255.0 | - |
+| | | Gi0/1 (Vers R4) | 10.2.0.2 | 255.255.255.0 | - |
+| **Router4** | Routeur VPN (Site 2) | Gi0/1 (LAN) | 10.255.253.1 | 255.255.255.252 | - |
+| | | Gi0/0 (WAN) | 10.2.0.1 | 255.255.255.0 | - |
+| | | Tunnel0 | 172.16.0.2 | 255.255.255.252 | - |
+| **PF2 (ASA)**| Pare-feu (Site 2) | Vlan 1 (Inside) | 10.255.255.5 | 255.255.255.252 | - |
+| | | Vlan 2 (Outside) | 10.255.253.2 | 255.255.255.252 | - |
+| **Switch1** | Multicouche L3 (Site 2) | Vlan 100 (Admin) | 192.168.10.1 | 255.255.255.0 | - |
+| | | Vlan 200 (Prod) | 192.168.20.1 | 255.255.255.0 | - |
+| | | Vlan 300 (Service)| 192.168.30.1 | 255.255.255.0 | - |
+| | | Fa0/4 (Vers PF2) | 10.255.255.6 | 255.255.255.252 | - |
+| **PC3** | Admin (Site 2) | FastEthernet0 | 192.168.10.10 | 255.255.255.0 | 192.168.10.1 |
+| **PC4** | Production (Site 2) | FastEthernet0 | 192.168.20.20 | 255.255.255.0 | 192.168.20.1 |
+| **PC5** | Service (Site 2) | FastEthernet0 | 192.168.30.30 | 255.255.255.0 | 192.168.30.1 |
 
 ---
 
-## 🛣️ Résumé des Routes par Défaut (Static Routes)
-| Équipement | Commande de routage | Destination |
-| :--- | :--- | :--- |
-| **Switch L3-1** | `ip route 0.0.0.0 0.0.0.0 10.255.255.1` | Sortie via PF1 (Inside) |
-| **ASA PF1** | `route outside 0.0.0.0 0.0.0.0 10.255.254.1 1` | Sortie via Router 2 |
-| **Switch L3-2** | `ip route 0.0.0.0 0.0.0.0 10.255.255.5` | Sortie via PF2 (Inside) |
-| **ASA PF2** | `route outside 0.0.0.0 0.0.0.0 10.255.253.1 1` | Sortie via Router 4 |
+## 2. Configurations des Équipements
 
+### 🏢 SITE 1 : Cœur de Réseau & Sécurité
+
+**1. Switch Multicouche (Switch0)**
+```cisco
+conf t
+ip routing
+ip route 0.0.0.0 0.0.0.0 10.255.255.1
+
+! Configuration des ACL d'isolation (Zero Trust)
+ip access-list extended ISOLATE_PROD
+ permit icmp 192.168.2.0 0.0.0.255 any echo-reply
+ deny ip 192.168.2.0 0.0.0.255 192.168.0.0 0.0.255.255
+ permit ip any any
+ip access-list extended ISOLATE_SERVICE
+ permit icmp 192.168.3.0 0.0.0.255 any echo-reply
+ deny ip 192.168.3.0 0.0.0.255 192.168.0.0 0.0.255.255
+ permit ip any any
+
+! Interfaces Virtuelles (SVI) et application des ACL
+interface Vlan 10
+ ip address 192.168.1.254 255.255.255.0
+ no shutdown
+interface Vlan 20
+ ip address 192.168.2.254 255.255.255.0
+ ip access-group ISOLATE_PROD in
+ no shutdown
+interface Vlan 30
+ ip address 192.168.3.254 255.255.255.0
+ ip access-group ISOLATE_SERVICE in
+ no shutdown
+
+! Lien de routage vers ASA
+interface FastEthernet0/4
+ no switchport
+ ip address 10.255.255.2 255.255.255.252
+ no shutdown
+exit
+```
+
+**2. Pare-Feu ASA (PF1)**
+```cisco
+conf t
+! Routage
+route outside 0.0.0.0 0.0.0.0 10.255.254.1 1
+route inside 192.168.1.0 255.255.255.0 10.255.255.2 1
+route inside 192.168.2.0 255.255.255.0 10.255.255.2 1
+route inside 192.168.3.0 255.255.255.0 10.255.255.2 1
+
+! ACL Inside (Contrôle du trafic sortant vers le WAN)
+access-list INSIDE_V3 extended permit ip 192.168.1.0 255.255.255.0 any
+access-list INSIDE_V3 extended permit icmp 192.168.2.0 255.255.255.0 192.168.10.0 255.255.255.0
+access-list INSIDE_V3 extended permit icmp 192.168.3.0 255.255.255.0 192.168.10.0 255.255.255.0
+access-list INSIDE_V3 extended deny ip 192.168.2.0 255.255.255.0 192.168.0.0 255.255.0.0
+access-list INSIDE_V3 extended deny ip 192.168.3.0 255.255.255.0 192.168.0.0 255.255.0.0
+access-list INSIDE_V3 extended permit ip any any
+
+! ACL Outside (Contrôle du trafic entrant depuis le tunnel VPN)
+access-list OUTSIDE_V3 extended permit ip 192.168.10.0 255.255.255.0 192.168.1.0 255.255.255.0
+access-list OUTSIDE_V3 extended permit ip 192.168.10.0 255.255.255.0 192.168.2.0 255.255.255.0
+access-list OUTSIDE_V3 extended permit ip 192.168.10.0 255.255.255.0 192.168.3.0 255.255.255.0
+access-list OUTSIDE_V3 extended permit icmp any any
+
+! Application sur les interfaces
+access-group INSIDE_V3 in interface inside
+access-group OUTSIDE_V3 in interface outside
+exit
+```
+
+**3. Routeur VPN (Router2)**
+```cisco
+conf t
+! Tunnel GRE & VPN IPsec
+crypto isakmp policy 10
+ encr aes 256
+ authentication pre-share
+ group 5
+crypto isakmp key progtr00 address 10.2.0.1
+crypto ipsec transform-set MYSET esp-aes esp-sha-hmac
+crypto map MYMAP 10 ipsec-isakmp 
+ set peer 10.2.0.1
+ set transform-set MYSET 
+ match address 110
+ 
+! ACL pour déclencher le VPN
+access-list 110 permit gre host 10.1.0.1 host 10.2.0.1
+
+! Configuration Interfaces
+interface GigabitEthernet0/0
+ ip address 10.255.254.1 255.255.255.252
+ no shutdown
+interface GigabitEthernet0/1
+ ip address 10.1.0.1 255.255.255.0
+ crypto map MYMAP
+ no shutdown
+interface Tunnel0
+ ip address 172.16.0.1 255.255.255.252
+ tunnel source GigabitEthernet0/1
+ tunnel destination 10.2.0.1
+
+! Routage OSPF et Statique
+router ospf 1
+ network 10.1.0.0 0.0.0.255 area 0
+ network 10.255.254.0 0.0.0.3 area 0
+ network 172.16.0.0 0.0.0.3 area 0
+ip route 192.168.1.0 255.255.255.0 10.255.254.2 
+ip route 192.168.2.0 255.255.255.0 10.255.254.2 
+ip route 192.168.3.0 255.255.255.0 10.255.254.2 
+ip route 192.168.10.0 255.255.255.0 172.16.0.2 
+ip route 192.168.20.0 255.255.255.0 172.16.0.2 
+ip route 192.168.30.0 255.255.255.0 172.16.0.2 
+exit
+```
+
+---
+
+### ☁️ WAN : Fournisseur d'Accès Internet
+
+**Routeur ISP (Router3)**
+```cisco
+conf t
+interface GigabitEthernet0/0
+ ip address 10.1.0.2 255.255.255.0
+ no shutdown
+interface GigabitEthernet0/1
+ ip address 10.2.0.2 255.255.255.0
+ no shutdown
+
+router ospf 1
+ network 10.1.0.0 0.0.0.255 area 0
+ network 10.2.0.0 0.0.0.255 area 0
+exit
+```
+
+---
+
+### 🏢 SITE 2 : Cœur de Réseau & Sécurité
+
+**1. Routeur VPN (Router4)**
+```cisco
+conf t
+! Tunnel GRE & VPN IPsec
+crypto isakmp policy 10
+ encr aes 256
+ authentication pre-share
+ group 5
+crypto isakmp key progtr00 address 10.1.0.1
+crypto ipsec transform-set MYSET esp-aes esp-sha-hmac
+crypto map MYMAP 10 ipsec-isakmp 
+ set peer 10.1.0.1
+ set transform-set MYSET 
+ match address 110
+
+! ACL pour déclencher le VPN
+access-list 110 permit gre host 10.2.0.1 host 10.1.0.1
+
+! Interfaces
+interface GigabitEthernet0/0
+ ip address 10.2.0.1 255.255.255.0
+ crypto map MYMAP
+ no shutdown
+interface GigabitEthernet0/1
+ ip address 10.255.253.1 255.255.255.252
+ no shutdown
+interface Tunnel0
+ ip address 172.16.0.2 255.255.255.252
+ tunnel source GigabitEthernet0/0
+ tunnel destination 10.1.0.1
+
+! Routage OSPF et Statique
+router ospf 1
+ network 10.2.0.0 0.0.0.255 area 0
+ network 10.255.253.0 0.0.0.3 area 0
+ network 172.16.0.0 0.0.0.3 area 0
+ip route 192.168.10.0 255.255.255.0 10.255.253.2 
+ip route 192.168.20.0 255.255.255.0 10.255.253.2 
+ip route 192.168.30.0 255.255.255.0 10.255.253.2 
+ip route 192.168.1.0 255.255.255.0 172.16.0.1 
+ip route 192.168.2.0 255.255.255.0 172.16.0.1 
+ip route 192.168.3.0 255.255.255.0 172.16.0.1 
+exit
+```
+
+**2. Pare-Feu ASA (PF2)**
+```cisco
+conf t
+! Routage
+route outside 0.0.0.0 0.0.0.0 10.255.253.1 1
+route inside 192.168.10.0 255.255.255.0 10.255.255.6 1
+route inside 192.168.20.0 255.255.255.0 10.255.255.6 1
+route inside 192.168.30.0 255.255.255.0 10.255.255.6 1
+
+! ACL Inside (Contrôle du trafic sortant vers le WAN)
+access-list INSIDE_V2 extended permit ip 192.168.10.0 255.255.255.0 any
+access-list INSIDE_V2 extended permit icmp 192.168.20.0 255.255.255.0 192.168.1.0 255.255.255.0
+access-list INSIDE_V2 extended permit icmp 192.168.30.0 255.255.255.0 192.168.1.0 255.255.255.0
+access-list INSIDE_V2 extended deny ip 192.168.20.0 255.255.255.0 192.168.0.0 255.255.0.0
+access-list INSIDE_V2 extended deny ip 192.168.30.0 255.255.255.0 192.168.0.0 255.255.0.0
+access-list INSIDE_V2 extended permit ip any any
+
+! ACL Outside (Contrôle du trafic entrant depuis le tunnel VPN)
+access-list OUTSIDE_V2 extended permit ip 192.168.1.0 255.255.255.0 192.168.10.0 255.255.255.0
+access-list OUTSIDE_V2 extended permit ip 192.168.1.0 255.255.255.0 192.168.20.0 255.255.255.0
+access-list OUTSIDE_V2 extended permit ip 192.168.1.0 255.255.255.0 192.168.30.0 255.255.255.0
+access-list OUTSIDE_V2 extended permit icmp any any
+
+! Application sur les interfaces
+access-group INSIDE_V2 in interface inside
+access-group OUTSIDE_V2 in interface outside
+exit
+```
+
+**3. Switch Multicouche (Switch1)**
+```cisco
+conf t
+ip routing
+ip route 0.0.0.0 0.0.0.0 10.255.255.5
+
+! Configuration des ACL d'isolation (Zero Trust)
+ip access-list extended ISOLATE_PROD2
+ permit icmp 192.168.20.0 0.0.0.255 any echo-reply
+ deny ip 192.168.20.0 0.0.0.255 192.168.0.0 0.0.255.255
+ permit ip any any
+ip access-list extended ISOLATE_SERVICE2
+ permit icmp 192.168.30.0 0.0.0.255 any echo-reply
+ deny ip 192.168.30.0 0.0.0.255 192.168.0.0 0.0.255.255
+ permit ip any any
+
+! Interfaces Virtuelles (SVI) et application des ACL
+interface Vlan 100
+ ip address 192.168.10.1 255.255.255.0
+ no shutdown
+interface Vlan 200
+ ip address 192.168.20.1 255.255.255.0
+ ip access-group ISOLATE_PROD2 in
+ no shutdown
+interface Vlan 300
+ ip address 192.168.30.1 255.255.255.0
+ ip access-group ISOLATE_SERVICE2 in
+ no shutdown
+
+! Lien de routage vers ASA
+interface FastEthernet0/4
+ no switchport
+ ip address 10.255.255.6 255.255.255.252
+ no shutdown
+exit
+```
 
 ## DNS DNSSEC
 
