@@ -142,16 +142,16 @@ options {
     // Recommandation ANSSI : masquer la version de BIND
     version "none";
 };
-🧪 4. Vérification DNSSEC
-
-Commande exécutée :
-
+4. Vérification DNSSEC
+Commande exécutée
 dig @10.0.2.15 www.entreprise.lan +dnssec
-✔ Résultat obtenu :
+✔ Résultat obtenu (extrait)
 ;; ANSWER SECTION:
 www.entreprise.lan. 86400 IN A 10.0.2.15
-www.entreprise.lan. 86400 IN RRSIG A 13 3 86400 20260410033836 20260327130206 59609 entreprise.lan. 
+www.entreprise.lan. 86400 IN RRSIG A 13 3 86400 20260410033836 20260327130206 59609 entreprise.lan.
 7PuNzotl93ttZsSNgezAfA8Yhl8nxOlgTYlePTabkyVXWORYynKqGuGl4F25KRDyOQhJQkfCrZSVO22VrwHVMw==
+
+La présence d’un enregistrement RRSIG confirme que la réponse DNS est correctement signée via DNSSEC.
 
 # Sécurisation complète d'un serveur Apache2 en HTTPS avec une CA Locale (Debian)
 
