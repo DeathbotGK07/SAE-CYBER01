@@ -11,7 +11,7 @@ L'entreprise dispose de deux sites géographiques. Chaque site possède une arch
 ##  Architecture Réseau
 Outil utilisé : Cisco Packet Tracer
 
-<img width="1294" height="628" alt="image" src="https://github.com/user-attachments/assets/b4917727-1b90-40d3-a994-aba8801db9e6" />
+<img width="1294" height="628" alt="image" src="Capture d’écran 2026-03-30 124615.png" />
 
 ### Topologie
 Le réseau est composé de deux sites connectés via un **Tunnel IPSEC GRE**.
